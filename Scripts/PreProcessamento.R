@@ -2,11 +2,15 @@ install.packages('RJDBC')
 install.packages('mltools')
 install.packages('data.table')
 install.packages('corrplot')
+install.packages('mlbench')
+install.packages('caret')
 
 library(data.table)
 library(mltools)
 library('RJDBC')
 library(corrplot)
+library(mlbench)
+library(caret)
 
 setwd("C:/Users/ctcca/Documents/USP/POS_BigData/MOD4/Monografia/CodigoFonte")
 
@@ -268,10 +272,12 @@ dadosEntrada1$ULT_RESULT_ADV <- as.factor(dadosEntrada1$ULT_RESULT_ADV)
 
 dadosEntrada1 <- one_hot(as.data.table(dadosEntrada1))
 dadosEntrada2 <- dadosEntrada1[,c(4:30)]
-summary(dadosEntrada2)
 
+#Fazer a eliminação de variáveis
+set.seed(7)
+
+#Matriz de correlação
 MCor <- cor(dadosEntrada2)
-corrplot(MCor)
 
 #Fonte: http://www.sthda.com/english/wiki/correlation-matrix-a-quick-start-guide-to-analyze-format-and-visualize-a-correlation-matrix-using-r-software
 flattenCorrMatrix <- function(cormat) {
@@ -283,5 +289,49 @@ flattenCorrMatrix <- function(cormat) {
   )
 }
 
+#1 Examinar as correlações
 correlacoes <- flattenCorrMatrix(MCor)
 View(correlacoes)
+
+#Análise de Componentes Principais
+pca <- prcomp(x = dadosEntrada2, scale = TRUE)
+pca
+summary(pca)
+plot(pca, type="l", pch=16, main ="Scree Plot")
+screeplot(pca, type="l", pch=16, main = "Scree Plot", npcs = 27)
+
+################### Montagem dos Conjuntos de Entrada ###################
+
+#Conjunto 1 -> Já está no banco de dados -> Relacao DADOS_CONSOLIDADOS_ENTRADA1
+
+#Conjunto 2 -> Aplicação de OneHotEncoding -> Relacao DADOS_CONSOLIDADOS_ENTRADA2
+dbWriteTable(con, "DADOS_CONSOLIDADOS_ENTRADA2", dadosEntrada1)
+
+#Conjunto 3 -> Remoção de variáveis após análise de correlação -> Relacao DADOS_CONSOLIDADOS_ENTRADA3
+dbWriteTable(con, "DADOS_CONSOLIDADOS_ENTRADA3", dadosEntrada1[,c(-13,-15,-19,-26)])
+
+#Conjunto 4 -> Após aplicação da PCA
+rot <- as.matrix(pca$rotation)
+dadosEntrada4 <- (as.matrix(dadosEntrada2) %*% rot)
+dadosEntrada4 <- as.data.frame(dadosEntrada4)
+dadosEntrada4 <- dadosEntrada4[,c(1:15)]
+dadosEntrada4 <- cbind(dadosEntrada1[,c(1:4)], dadosEntrada4, dadosEntrada1[,c(31:32)])
+dbWriteTable(con, "DADOS_CONSOLIDADOS_ENTRADA4", dadosEntrada4)
+
+#Conjunto 5 -> Conjunto 3 normalizado 0-1
+dadosEntrada5 <- dadosEntrada2
+
+normalize <- function(df)
+{
+  for(col in 1:dim(df)[2])
+  {
+    df[[col]] <- ((df[[col]]-min(df[[col]]))/(max(df[[col]])-min(df[[col]])))
+  }
+  return(df)
+}
+
+dadosEntrada5 <- (normalize(dadosEntrada5))
+dadosEntrada5 <- cbind(dadosEntrada1[,c(1:4)],dadosEntrada5,dadosEntrada1[,c(31:32)])
+names(dadosEntrada5)[5] <- "RODADA_NORM"
+dadosEntrada5 <- dadosEntrada5[,c(-14,-16,-20,-27)]
+dbWriteTable(con, "DADOS_CONSOLIDADOS_ENTRADA5", dadosEntrada5)
