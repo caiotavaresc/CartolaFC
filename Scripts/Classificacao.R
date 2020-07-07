@@ -72,8 +72,8 @@ rows_sample4 <- union(rows_sample4, sample(rownames(treino4[treino4$ENTRE_MELHOR
 treino4_bal <- subset(conjunto4,rownames(conjunto4) %in% rows_sample4)
 
 #Separar conjuntos 5
-treino5 <- conjunto5[conjunto1$RODADA %notin% rodadasTeste,]
-teste5 <- conjunto5[conjunto1$RODADA %in% rodadasTeste,]
+treino5 <- conjunto5[conjunto5$RODADA %notin% rodadasTeste,]
+teste5 <- conjunto5[conjunto5$RODADA %in% rodadasTeste,]
 
 ###################### Árvore de decisão ######################
 #Para árvore de decisão serão usados os conjuntos C1 e C4
@@ -281,7 +281,7 @@ confusionMatrix(nbpred_c1_em[,1], teste1$ENTRE_MELHORES)
 nbmod_c1_qu <- naiveBayes(treino1[,c(4:21)], treino1$QUINTIL)
 
 #predição
-nbpred_c1_qu <- as.data.frame(predict(nbmod_c1_qu, teste1[,c(4:21)], "class"))
+nbpred_c1_qu <- as.data.frame(predict(nbmod_c1_qu, teste1[,c(4:21)], "vector"))
 confusionMatrix(nbpred_c1_qu[,1], teste1$QUINTIL)
 
 ### Conjunto 1B -> ENTRE_MELHORES
@@ -367,6 +367,7 @@ teste2$ENTRE_MELHORES <- as.factor(teste2$ENTRE_MELHORES)
 
 num_levels <- length(levels(teste2$ENTRE_MELHORES))
 
+set.seed(42)
 ### Conjunto 2 -> Quintil
 xgbmod_c2_qu <- xgboost(
   data = data.matrix(treino2[,c(4:30)]),
@@ -381,7 +382,7 @@ xgbmod_c2_qu <- xgboost(
   objective = "multi:softprob",
   num_class = 6,
   nthread = 3,
-  early_stopping_rounds = 10,
+  early_stopping_rounds = 20,
   booster = "gbtree"
 )
 
